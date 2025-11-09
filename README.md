@@ -37,5 +37,6 @@ Follow these steps to install and run the frontend locally:
 1. **Clone the repository**
    ```bash
    git clone https://github.com/Mendiii/eTeacherProjectFronEnd.git
+   cd eTeacherProjectFronEnd
    npm install
    npm start
