@@ -1,56 +1,71 @@
-import React, { useEffect, useState } from "react";
-import { getEnrolments, addEnrolment } from "../../api/enrolmentApi";
+import React, { useState, useEffect } from "react";
+import { addEnrolment } from "../../api/enrolmentApi";
+import { getCourses } from "../../api/courseApi";
 import {
   Container,
   Typography,
   Paper,
-  List,
-  ListItem,
-  CircularProgress,
-  Alert,
   Button,
   TextField,
   Box,
+  Alert,
+  MenuItem,
 } from "@mui/material";
 
 export default function EnrolmentsForm() {
-  const [enrolments, setEnrolments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [form, setForm] = useState({
     title: "",
     startingDate: "",
     courseId: "",
   });
+  const [errors, setErrors] = useState({});
+  const [success, setSuccess] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
-    fetchEnrolments();
+    async function fetchCourses() {
+      try {
+        setLoadingCourses(true);
+        const data = await getCourses();
+        setCourses(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to fetch courses", err);
+      } finally {
+        setLoadingCourses(false);
+      }
+    }
+    fetchCourses();
   }, []);
 
-  async function fetchEnrolments() {
-    try {
-      setLoading(true);
-      const data = await getEnrolments();
-      setEnrolments(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to fetch enrolments", err);
-      setError("Could not load enrolments. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
+  function validate() {
+    const newErrors = {};
+    if (!form.title) newErrors.title = "Title is required";
+    if (!form.startingDate) newErrors.startingDate = "Starting date is required";
+    if (!form.courseId) newErrors.courseId = "Course is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!validate()) return;
+
     try {
       const dto = {
         title: form.title,
-        startingDate: form.startingDate, // native date string
+        startingDate: form.startingDate,
         courseId: parseInt(form.courseId, 10),
       };
-      await addEnrolment(dto);
-      setForm({ title: "", startingDate: "", courseId: "" });
-      window.location.reload(); // refresh page to fetch fresh enrolments
+      const added = await addEnrolment(dto);
+
+      if (added && (added.status === 201 || added.id)) {
+        setSuccess(true);
+        setForm({ title: "", startingDate: "", courseId: "" });
+        setErrors({});
+        // Hide success after 3 seconds
+        setTimeout(() => setSuccess(false), 3000);
+      }
     } catch (err) {
       console.error("Failed to add enrolment", err);
     }
@@ -63,80 +78,71 @@ export default function EnrolmentsForm() {
           Add Enrolment
         </Typography>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            label="Title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            margin="normal"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Starting Date"
-            type="date"
-            value={form.startingDate}
-            onChange={(e) =>
-              setForm({ ...form, startingDate: e.target.value })
-            }
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            required
-          />
-          <TextField
-            fullWidth
-            label="Course ID"
-            type="number"
-            value={form.courseId}
-            onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-            margin="normal"
-            required
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            sx={{ mt: 2 }}
-          >
-            Save Enrolment
-          </Button>
-        </Box>
-
-        <Typography variant="h5" gutterBottom>
-          All Enrolments
-        </Typography>
-
-        {loading && <CircularProgress />}
-        {error && <Alert severity="error">{error}</Alert>}
-        {!loading && enrolments.length === 0 && !error && (
-          <Typography variant="body1">No enrolments found.</Typography>
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Enrolment registered successfully!
+          </Alert>
         )}
 
-        <List>
-          {enrolments.map((e) => (
-            <ListItem key={e.id} divider alignItems="flex-start">
-              <Box
-                sx={{
-                  wordBreak: "break-word",
-                  whiteSpace: "normal",
-                  maxWidth: "100%",
-                }}
-              >
-                <Typography variant="h6">
-                  <strong>Title:</strong> {e.title}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Starting Date:</strong>{" "}
-                  {new Date(e.startingDate).toLocaleDateString()}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Course ID:</strong> {e.courseId}
-                </Typography>
-              </Box>
-            </ListItem>
-          ))}
-        </List>
+        {loadingCourses ? (
+          <Typography variant="body1">Loading courses...</Typography>
+        ) : courses.length === 0 ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            No courses available. Please add courses first before creating enrolments.
+          </Alert>
+        ) : (
+          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              label="Title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              margin="normal"
+              error={!!errors.title}
+              helperText={errors.title}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Starting Date"
+              type="date"
+              value={form.startingDate}
+              onChange={(e) =>
+                setForm({ ...form, startingDate: e.target.value })
+              }
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+              error={!!errors.startingDate}
+              helperText={errors.startingDate}
+              required
+            />
+            <TextField
+              select
+              fullWidth
+              label="Course"
+              value={form.courseId}
+              onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+              margin="normal"
+              error={!!errors.courseId}
+              helperText={errors.courseId}
+              required
+            >
+              {courses.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.title} — {c.lecturer}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              sx={{ mt: 2 }}
+            >
+              Save Enrolment
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Container>
   );

@@ -15,11 +15,25 @@ export async function addEnrolment(enrolment) {
 }
 
 export async function Enroll(enrolmentId, studentId) {
-  const res = await fetch(`${API_BASE}/enrolments/${enrolmentId}`, {
+  const res = await fetch(`${API_BASE}/enrolments/${enrolmentId}/assign-student`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(studentId),
   });
-  return res.json();
+
+  if (!res.ok) {
+    const errorText = await res.text(); // plain string from server
+    throw new Error(errorText);
+  }
+
+  // If server returns 204 No Content, just return true
+  if (res.status === 204) {
+    return true;
+  }
+
+  // If body is empty but not 204, avoid parsing error
+  const text = await res.text();
+  return text ? JSON.parse(text) : true;
 }
+
 
