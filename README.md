@@ -1,4 +1,4 @@
-# 🎨 eTeacherProject Frontend
+# eTeacherProject Frontend
 
 This is the **frontend application** for e‑learning platform. 
 It is built with **React** and integrates with the backend API to manage **Students, Courses, and Enrolments**.  
